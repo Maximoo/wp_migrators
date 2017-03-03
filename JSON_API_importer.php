@@ -30,7 +30,7 @@ $content = apply_filters('the_content', $content);
 */
 
 
-add_action( 'init', 'post_importer', 0 );
+add_action( 'init', 'post_importer', 99 );
 function post_importer() {
   if( isset( $_GET['_action'] ) )
   {
@@ -103,7 +103,7 @@ function post_importer() {
               $meta_input = array();
               if ( ! empty( $post->custom_fields ) ) {
                   foreach ( $post->custom_fields as $field => $value ) {
-                    $meta_input[$field] = $value[0];
+                    $meta_input[$field] = is_Array($value) && !empty($value) ? $value[0] : $value;
                   }
               }
               $args = array(
@@ -120,8 +120,9 @@ function post_importer() {
                 'post_modified' => $post->modified,
                 'post_category' => $cats,
                 'tags_input' => $tags,
-                'meta_input' => $post->custom_fields
+                'meta_input' => $meta_input
               );
+              
               if(isset($_GET["run"])){
                 $post_id = wp_insert_post($args);
                 if(is_wp_error($post_id)){
@@ -131,7 +132,21 @@ function post_importer() {
                   $conflict = true;
                 } else {
                   echo 'POST: <a href="'. get_permalink($post_id) .'" target="_blank">' . $post_id . '</a> <a href="'. admin_url("post.php?post=$post_id&action=edit") .'" target="_blank">EDIT</a><br />';
-                  if(!empty($post->attachments)){
+
+                  if(!empty($post->taxonomy_columnist)){
+                    wp_set_object_terms($post_id, $post->taxonomy_columnist[0]->id,'columnist',false);
+                  }
+                  if(!empty($post->taxonomy_channel)){
+                    $cannels = array();
+                    for ($y=0; $y < count($post->taxonomy_channel); $y++) { 
+                      $cannels[] = $post->taxonomy_channel[$y]->id;
+                    }
+                    wp_set_object_terms($post_id, $cannels,'channel',false);
+                  }
+
+                  
+
+                  if(!empty($post->thumbnail_images)){
                     if ( !function_exists('media_handle_sideload') ) { 
                       require_once(ABSPATH . 'wp-admin/includes/image.php');
                       require_once(ABSPATH . 'wp-admin/includes/file.php');
@@ -194,7 +209,7 @@ function post_importer() {
           echo '<a href="' . $nextpage_url .'&run">NEXT AND RUN</a><br />';
           echo '<a href="' . $nextpage_url .'&run&auto">NEXT AND AUTO RUN</a><br />';
           if(isset($_GET["auto"]) && !$conflict){
-            echo "<script>setTimeout(function(){window.location.href='$nextpage_url&run&auto'} , 400);</script>";
+            echo "<script>setTimeout(function(){window.location.href='$nextpage_url&run&auto'} , 200);</script>";
           }
         }
         echo '<hr />';
@@ -218,7 +233,7 @@ function impatt( $post_id, $do = false ){
     echo '</pre>';
     if($do){
       $count = 0;
-      for ( $i=0; $i<=10; $i++ ) {
+      for ( $i=0; $i<=20; $i++ ) {
         if (isset($imgs[$i]) && impatt_is_external_file($imgs[$i]) ) {
           $new_img = impatt_sideload( $imgs[$i] , $post_id );
           if ($new_img && impatt_is_external_file($new_img) ) {
